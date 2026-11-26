@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>dsh-taskline UI 原型 v0.1</title>
+<style>
+  /* 近似 DSH 设计 token；真实值以 packages/client/ui-theme/src/styles/design-platform.css 为准 */
+  :root {
+    /* 真实 DSH token；这里的值只是浅色主题近似，实现时直接引用 --dsw-* 变量，不硬编码色值 */
+    --bg: var(--dsw-alias-bg-base, #f7f8fa);
+    --panel: var(--dsw-alias-bg-layer-1, #ffffff);
+    --panel-2: var(--dsw-alias-bg-layer-2, #f1f3f6);
+    --line: var(--dsw-alias-border-l1, #e3e6eb);
+    --text: var(--dsw-alias-label-primary, #1f2329);
+    --muted: var(--dsw-alias-label-secondary, #6b7280);
+    --faint: var(--dsw-alias-label-tertiary, #9aa1ac);
+    --accent: var(--dsw-alias-brand-primary, #4f7cff);
+    --accent-soft: color-mix(in srgb, var(--dsw-alias-brand-primary, #4f7cff) 12%, transparent);
+    --done: var(--dsw-alias-state-done-primary, #7c5cff);
+    --warn: var(--dsw-alias-state-warn-primary, #b7791f);
+    --danger: var(--dsw-alias-state-error-primary, #d64545);
+    --ok: var(--dsw-alias-state-success-primary, #2f855a);
+    --idle: var(--dsw-alias-state-idle-primary, #c6ccd6);
+    --radius: 10px;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 13px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text);
+    background: var(--bg);
+  }
+  button { font: inherit; color: inherit; }
+
+  .app {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr) 340px;
+    height: 100vh;
+  }
+
+  /* ---------- 左栏 ---------- */
+  .sidebar {
+    border-right: 1px solid var(--line);
+    background: var(--panel-2);
+    display: flex; flex-direction: column;
+  }
+  .sidebar .brand {
+    padding: 14px 14px 10px; font-weight: 650; letter-spacing: .2px;
+  }
+  .sidebar .brand small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .session-list { padding: 6px; overflow: auto; flex: 1; }
+  .session {
+    padding: 8px 10px; border-radius: 8px; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .session.active { background: var(--panel); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  .sidebar .bottom { border-top: 1px solid var(--line); padding: 8px; }
+  .ghost-btn {
+    width: 100%; text-align: left; background: transparent; border: 0;
+    padding: 8px 10px; border-radius: 8px; color: var(--muted); cursor: pointer;
+  }
+  .ghost-btn:hover { background: rgba(0,0,0,.04); }
+
+  /* ---------- 主区 ---------- */
+  .main { display: flex; flex-direction: column; min-width: 0; }
+  .topbar {
+    height: 46px; border-bottom: 1px solid var(--line); background: var(--panel);
+    display: flex; align-items: center; gap: 10px; padding: 0 16px;
+  }
+  .topbar .title { font-weight: 600; }
+  .topbar .spacer { flex: 1; }
+  .pill { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; }
+
+  .conversation { flex: 1; overflow: auto; padding: 18px 22px 8px; }
+  .msg { max-width: 760px; margin: 0 auto 14px; }
+  .msg.user { display: flex; justify-content: flex-end; }
+  .msg.user .bubble { background: var(--accent-soft); border-radius: 12px; padding: 8px 12px; max-width: 70%; }
+  .msg.assistant .who { color: var(--faint); font-size: 11px; margin-bottom: 4px; }
+
+  .toolcard {
+    border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
+    background: var(--panel); margin: 8px 0;
+  }
+  .toolcard header {
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+    border-bottom: 1px solid var(--line); background: var(--panel-2);
+  }
+  .toolcard .tname { font-family: var(--mono); font-size: 11.5px; color: var(--accent); }
+  .toolcard .targ { color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .toolcard .state { margin-left: auto; }
+  .toolcard .body { padding: 8px 10px; }
+  .toolcard pre {
+    margin: 0 0 6px; font-family: var(--mono); font-size: 11.5px; color: var(--text);
+    background: var(--panel-2); border-radius: 6px; padding: 6px 8px; overflow: auto;
+  }
+  .toolcard .ret { color: var(--muted); font-size: 11.5px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 1px 8px; font-size: 11px; color: var(--muted); background: var(--panel);
+  }
+  .chip.done { border-color: var(--done); color: var(--done); }
+  .chip.warn { border-color: var(--warn); color: var(--warn); }
+  .chip.danger { border-color: var(--danger); color: var(--danger); }
+  .chip.ok { border-color: var(--ok); color: var(--ok); }
+
+  .clampcard {
+    border: 1px solid var(--warn);
+    background: #fffaf0; border-radius: var(--radius); padding: 10px 12px; margin: 8px 0;
+  }
+  .clampcard h4 { margin: 0 0 4px; font-size: 12.5px; color: var(--warn); }
+  .clampcard p { margin: 0 0 6px; color: #7a5a12; }
+  .clampcard .mono { font-family: var(--mono); font-size: 11.5px; color: var(--text); }
+
+  /* ---------- 输入区 ---------- */
+  .composer-wrap { padding: 10px 22px 16px; border-top: 1px solid var(--line); background: var(--panel); }
+  .composer-inner { max-width: 860px; margin: 0 auto; }
+
+  .timeline-bar {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px dashed var(--line); border-radius: 8px;
+    padding: 5px 10px; margin-bottom: 6px; color: var(--faint); font-size: 11.5px;
+    background: repeating-linear-gradient(45deg, #fafbfc, #fafbfc 6px, #f4f6f8 6px, #f4f6f8 12px);
+  }
+  .timeline-bar .seg { flex: 1; height: 4px; border-radius: 999px; background: linear-gradient(90deg, #cfd6e4 55%, #e6eaf2 55%); }
+
+  .dock {
+    border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+    padding: 8px 10px 7px; margin-bottom: 8px;
+  }
+  .dock.collapsed .segbar,
+  .dock.collapsed .legend { display: none; }
+  .dock.collapsed { padding-bottom: 8px; }
+  .dock-toggle { border: 0; background: transparent; color: var(--faint); cursor: pointer; padding: 0 2px; font-size: 12px; }
+  .dock .row1 { display: flex; align-items: center; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
+  .dot.done { background: var(--done); }
+  .dot.idle { background: #c6ccd6; }
+  .dock .taskname { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dock .pct { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  .dock .open-tree { margin-left: auto; background: transparent; border: 0; color: var(--accent); cursor: pointer; font-size: 11.5px; }
+  .segbar { display: flex; height: 6px; gap: 2px; margin: 7px 0 6px; }
+  .segbar span { border-radius: 999px; display: block; height: 100%; }
+  .segbar .s-done { background: var(--done); }
+  .segbar .s-active { background: var(--accent); }
+  .segbar .s-idle { background: #e2e6ee; }
+  .segbar .s-blocked { background: var(--danger); }
+  .legend { display: flex; gap: 12px; color: var(--muted); font-size: 11px; }
+  .legend i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; }
+
+  .composer {
+    border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
+    padding: 8px 10px; display: flex; align-items: center; gap: 8px;
+  }
+  .composer .ph { color: var(--faint); flex: 1; }
+  .send { width: 26px; height: 26px; border-radius: 8px; border: 0; background: var(--accent); color: #fff; cursor: pointer; }
+
+  /* ---------- 右栏 ---------- */
+  .rightbar { border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; min-width: 0; }
+  .rb-tabs { display: flex; align-items: center; gap: 4px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .rb-tab { border: 0; background: transparent; padding: 4px 10px; border-radius: 7px; color: var(--muted); cursor: pointer; }
+  .rb-tab.active { background: var(--panel-2); color: var(--text); font-weight: 600; }
+  .rb-close { margin-left: auto; border: 0; background: transparent; color: var(--faint); cursor: pointer; font-size: 15px; }
+  .rb-body { flex: 1; overflow: auto; padding: 10px; }
+  .rb-section { color: var(--faint); font-size: 11px; text-transform: none; margin: 10px 2px 6px; }
+
+  .task-node { border: 1px solid var(--line); border-radius: 9px; background: var(--panel); margin-bottom: 7px; }
+  .task-node .tn-row { display: flex; align-items: flex-start; gap: 7px; padding: 8px 9px 6px; }
+  .caret { width: 12px; border: 0; background: transparent; color: var(--faint); cursor: pointer; padding: 0; flex: none; line-height: 1.4; }
+  .caret.leaf { visibility: hidden; }
+  .tn-main { min-width: 0; flex: 1; }
+  .tn-title { display: flex; align-items: center; gap: 6px; }
+  .tn-title b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .depth { font-family: var(--mono); font-size: 10px; color: var(--faint); border: 1px solid var(--line); border-radius: 4px; padding: 0 3px; }
+  .tn-meta { display: flex; align-items: center; gap: 8px; margin-top: 3px; color: var(--muted); font-size: 11px; }
+  .tn-meta .mono { font-family: var(--mono); }
+  .children { padding: 0 9px 7px 25px; }
+  .children .task-node { background: var(--panel-2); margin-bottom: 5px; }
+  .children .children .task-node { background: var(--panel); }
+  .children.hidden { display: none; }
+  .tn-actions { display: flex; gap: 4px; }
+  .mini { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; font-size: 11px; padding: 1px 7px; color: var(--muted); cursor: pointer; }
+  .mini:hover { color: var(--text); border-color: #cfd5df; }
+
+  .event { border-bottom: 1px dashed var(--line); padding: 8px 2px; }
+  .event .e1 { display: flex; align-items: center; gap: 8px; }
+  .event .time { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+  .event .e2 { margin-top: 3px; color: var(--text); }
+  .event .e3 { margin-top: 2px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+  /* ---------- 设置页 ---------- */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(20, 24, 32, .35);
+    display: grid; place-items: center; z-index: 20;
+  }
+  .overlay[hidden] { display: none; }
+  .settings {
+    width: min(880px, 92vw); height: min(620px, 86vh); background: var(--panel);
+    border-radius: 14px; box-shadow: 0 24px 60px rgba(0,0,0,.25); overflow: hidden;
+    display: grid; grid-template-columns: 188px minmax(0, 1fr);
+  }
+  .set-nav { background: var(--panel-2); border-right: 1px solid var(--line); padding: 14px 8px; }
+  .set-nav .h { font-weight: 650; padding: 0 8px 10px; }
+  .set-nav button { display: block; width: 100%; text-align: left; border: 0; background: transparent; padding: 7px 8px; border-radius: 7px; color: var(--muted); cursor: pointer; }
+  .set-nav button.active { background: var(--panel); color: var(--text); font-weight: 600; }
+  .set-main { display: flex; flex-direction: column; min-width: 0; }
+  .set-head { display: flex; align-items: center; gap: 8px; padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+  .set-head b { font-size: 15px; }
+  .set-head .x { margin-left: auto; border: 0; background: transparent; font-size: 17px; color: var(--faint); cursor: pointer; }
+  .set-body { padding: 12px 16px; overflow: auto; flex: 1; }
+  .group { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 14px; }
+  .group h4 { margin: 0; padding: 8px 12px; background: var(--panel-2); font-size: 12px; color: var(--muted); font-weight: 600; }
+  .field { display: flex; gap: 14px; align-items: flex-start; padding: 10px 12px; border-top: 1px solid var(--line); }
+  .field:first-of-type { border-top: 0; }
+  .field .lab { flex: 1; }
+  .field .lab b { font-weight: 600; }
+  .field .lab p { margin: 2px 0 0; color: var(--muted); font-size: 11.5px; }
+  .field .ctl { flex: none; padding-top: 1px; }
+  .field input[type=number], .field select {
+    font: inherit; border: 1px solid var(--line); border-radius: 7px; padding: 4px 7px; background: var(--panel);
+  }
+  .field input[type=number] { width: 78px; }
+  .field select { min-width: 150px; }
+  .switch { position: relative; width: 36px; height: 20px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch span { position: absolute; inset: 0; border-radius: 999px; background: #d6dbe4; cursor: pointer; }
+  .switch span::after { content: ""; position: absolute; width: 16px; height: 16px; border-radius: 50%; background: #fff; top: 2px; left: 2px; transition: .15s; }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::after { transform: translateX(16px); }
+  .note { margin: 6px 12px 10px; padding: 7px 9px; border-radius: 8px; background: #fffaf0; border: 1px solid #f0dcae; color: #7a5a12; font-size: 11.5px; }
+  .set-foot { border-top: 1px solid var(--line); padding: 10px 16px; display: flex; align-items: center; gap: 8px; }
+  .primary { border: 0; background: var(--accent); color: #fff; border-radius: 8px; padding: 6px 14px; cursor: pointer; }
+  .secondary { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 6px 14px; cursor: pointer; }
+  .set-foot .src { margin-left: auto; color: var(--faint); font-size: 11px; }
+
+  /* ---------- slot 标注 ---------- */
+  .slot-badge {
+    display: none; font-family: var(--mono); font-size: 10px; color: #8a5a00;
+    background: #fff4d6; border: 1px solid #f0d79a; border-radius: 4px;
+    padding: 0 4px; margin-left: 6px; vertical-align: 1px; white-space: nowrap;
+  }
+  body.annotate .slot-badge { display: inline-block; }
+  .anno-toggle {
+    position: fixed; right: 356px; bottom: 14px; z-index: 10;
+    border: 1px solid var(--line); background: var(--panel); border-radius: 999px;
+    padding: 5px 10px; font-size: 11px; color: var(--muted); cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  }
+  .legend-note { color: var(--faint); font-size: 10.5px; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- 左栏：会话 + 设置入口（settings.trigger 在左栏底部） -->
+  <aside class="sidebar">
+    <div class="brand">DSH<small>dsh-taskline UI 原型</small></div>
+    <div class="session-list">
+      <div class="session active">长会话压缩联调</div>
+      <div class="session">bili 适配器排查</div>
+      <div class="session">任务树 UI 评审</div>
+      <div class="session">周五发布检查</div>
+    </div>
+    <div class="bottom">
+      <button class="ghost-btn" id="openSettings">插件<span class="slot-badge">plugins.bundle.config</span></button>
+    </div>
+  </aside>
+
+  <!-- 主区 -->
+  <main class="main">
+    <header class="topbar">
+      <div class="title">长会话压缩联调</div>
+      <span class="pill">deepseek-v4</span>
+      <div class="spacer"></div>
+      <span class="pill">已用 38%</span>
+    </header>
+
+    <section class="conversation">
+      <div class="msg user"><div class="bubble">继续，把 bili 的压缩落盘接上。</div></div>
+
+      <div class="msg assistant">
+        <div class="who">assistant</div>
+        <div>先把引擎接管这一段跑通，再看观测链路。</div>
+
+        <!-- 工具卡：task_start -->
+        <div class="toolcard">
+          <header>
+            <span class="tname">task_start</span>
+            <span class="targ">引擎接管 ctx.compaction</span>
+            <span class="state chip done">完成</span>
+            <span class="slot-badge">tool.call.toolview</span>
+          </header>
+          <div class="body">
+            <pre>{ "title": "引擎接管 ctx.compaction", "parentTaskId": "t-1" }</pre>
+            <div class="ret">t-1.1 已开启 · 起点 m00120 · depth 1</div>
+          </div>
+        </div>
+
+        <!-- 工具卡：compress -->
+        <div class="toolcard">
+          <header>
+            <span class="tname">compress</span>
+            <span class="targ">m00120–m00158</span>
+            <span class="state chip done">完成</span>
+            <span class="slot-badge">tool.call.toolview</span>
+          </header>
+          <div class="body">
+            <pre>{ "content": "m00120–m00158 引擎接管\n摘要…" }</pre>
+            <div class="ret">已折叠 1 段 · 41.2K → 3.1K</div>
+          </div>
+        </div>
+
+        <!-- 裁边提示：没有任意插入 slot，放在 compress 卡内 -->
+        <div class="clampcard">
+          <h4>这次 compress 已裁边（不是拒绝）</h4>
+          <p>区间跨过 open 任务 <b>t-1</b>，只压了其中已关闭的部分：</p>
+          <div class="mono">m00120–m00158 已压 · m00159–m00172 跳过（t-1.2 open）</div>
+          <div class="legend-note">落点：compress 工具卡内部；`/taskline gate off` 可临时放开</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 输入区：Timeline 进度条（官方插件）在上，taskline dock 在下 -->
+    <div class="composer-wrap">
+      <div class="composer-inner">
+        <div class="timeline-bar">
+          <span>Timeline 进度条（官方插件，占 conversation.input.dock / order 20）</span>
+          <span class="slot-badge">conversation.input.dock</span>
+          <span class="seg"></span>
+          <span>2/5</span>
+        </div>
+
+        <div class="dock">
+          <div class="row1">
+            <span class="dot"></span>
+            <span class="taskname">接入 bili 压缩落盘</span>
+            <span class="pct">38%</span>
+            <button class="dock-toggle" id="dockToggle" title="折叠">v</button>
+            <button class="open-tree" id="openTree">打开任务树</button>
+            <span class="slot-badge">conversation.input.dock</span>
+          </div>
+          <div class="segbar">
+            <span class="s-done" style="width:38%"></span>
+            <span class="s-active" style="width:14%"></span>
+            <span class="s-idle" style="width:40%"></span>
+            <span class="s-blocked" style="width:8%"></span>
+          </div>
+          <div class="legend">
+            <span><i style="background:var(--done)"></i>已完成 38%</span>
+            <span><i style="background:var(--accent)"></i>进行中 14%</span>
+            <span><i style="background:#e2e6ee"></i>待开始 40%</span>
+            <span><i style="background:var(--danger)"></i>受阻 8%</span>
+          </div>
+        </div>
+
+        <div class="composer">
+          <span class="ph">给 agent 发消息…</span>
+          <button class="send" title="发送"></button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 右栏：可停靠 tab/pane；taskline 以 tab 类型接入，不用固定 320px 列 -->
+  <aside class="rightbar">
+    <div class="rb-tabs">
+      <button class="rb-tab active" data-rbtab="tasks">任务</button>
+      <button class="rb-tab" data-rbtab="events">压缩事件</button>
+      <button class="rb-close" title="关闭">×</button>
+      <span class="slot-badge">sidebar.right.pane.tab</span>
+    </div>
+
+    <div class="rb-body" id="rbTasks">
+      <div class="rb-section">进行中</div>
+
+      <div class="task-node" data-node="t-1">
+        <div class="tn-row">
+          <button class="caret" data-toggle="t-1">v</button>
+          <div class="tn-main">
+            <div class="tn-title">
+              <span class="dot"></span><b>接入 bili 压缩落盘</b>
+              <span class="depth">t-1</span>
+            </div>
+            <div class="tn-meta">
+              <span class="mono">m00120–m00196</span>
+              <span>41.2K tok</span>
+              <span class="chip warn">部分压缩 12.8K→9.1K</span>
+            </div>
+          </div>
+          <div class="tn-actions">
+            <button class="mini">改名</button>
+            <button class="mini">完成</button>
+          </div>
+        </div>
+
+        <div class="children" data-children="t-1">
+          <div class="task-node" data-node="t-1.1">
+            <div class="tn-row">
+              <button class="caret leaf"></button>
+              <div class="tn-main">
+                <div class="tn-title"><span class="dot done"></span><b>引擎接管 ctx.compaction</b><span class="depth">t-1.1</span></div>
+                <div class="tn-meta">
+                  <span class="mono">m00120–m00158</span>
+                  <span>12.8K tok</span>
+                  <span class="chip done">已压缩 41.2K→3.1K</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="task-node" data-node="t-1.2">
+            <div class="tn-row">
+              <button class="caret" data-toggle="t-1.2">v</button>
+              <div class="tn-main">
+                <div class="tn-title"><span class="dot"></span><b>观测链路与映射</b><span class="depth">t-1.2</span></div>
+                <div class="tn-meta">
+                  <span class="mono">m00159–m00196</span>
+                  <span>9.1K tok</span>
+                  <span class="chip warn">部分压缩</span>
+                </div>
+              </div>
+              <div class="tn-actions"><button class="mini">完成</button></div>
+            </div>
+            <div class="children" data-children="t-1.2">
+              <div class="task-node">
+                <div class="tn-row">
+                  <button class="caret leaf"></button>
+                  <div class="tn-main">
+                    <div class="tn-title"><span class="dot idle"></span><b>ref 映射断点检测</b><span class="depth">t-1.2.1</span></div>
+                    <div class="tn-meta"><span class="mono">m00159–m00172</span><span>4.4K tok</span><span class="chip">未压缩</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="task-node" data-node="t-1.3">
+            <div class="tn-row">
+              <button class="caret leaf"></button>
+              <div class="tn-main">
+                <div class="tn-title"><span class="dot idle"></span><b>压缩门禁联调</b><span class="depth">t-1.3</span></div>
+                <div class="tn-meta"><span class="mono">m00197–m00215</span><span>8.6K tok</span><span class="chip">未压缩</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rb-section">最近关闭</div>
+      <div class="task-node">
+        <div class="tn-row">
+          <button class="caret leaf"></button>
+          <div class="tn-main">
+            <div class="tn-title"><span class="dot done"></span><b>读 vendor 确认 bili 机制</b><span class="depth">t-0</span></div>
+            <div class="tn-meta"><span class="mono">m00040–m00119</span><span>33.8K tok</span><span class="chip done">已压缩 33.8K→2.6K</span></div>
+          </div>
+          <div class="tn-actions"><button class="mini">重开</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rb-body" id="rbEvents" hidden>
+      <div class="event">
+        <div class="e1"><span class="time">10:39</span><span class="chip done">已落盘</span></div>
+        <div class="e2">m00120–m00172 折成 1 段</div>
+        <div class="e3">shadowed 53 节点 · 41.2K → 3.1K</div>
+      </div>
+      <div class="event">
+        <div class="e1"><span class="time">10:42</span><span class="chip warn">已裁边</span></div>
+        <div class="e2">请求跨 t-1.2（open），只压了 m00120–m00158</div>
+        <div class="e3">跳过 m00159–m00172 · 未压区段保留</div>
+      </div>
+      <div class="event">
+        <div class="e1"><span class="time">10:20</span><span class="chip done">已落盘</span></div>
+        <div class="e2">m00040–m00119 折成 1 段</div>
+        <div class="e3">shadowed 80 节点 · 33.8K → 2.6K</div>
+      </div>
+      <div class="event">
+        <div class="e1"><span class="time">10:05</span><span class="chip danger">后端不可用</span></div>
+        <div class="e2">bili 后端自禁用，回落到 native</div>
+        <div class="e3">版本不匹配：0.1.197 不在 SUPPORTED 矩阵</div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<button class="anno-toggle" id="toggleAnno">显示 slot 标注</button>
+
+<!-- 设置页：0.2.3 起 Plugins 是独立主面板，不是 settings.plugins.tab -->
+<div class="overlay" id="settingsOverlay" hidden>
+  <div class="settings" role="dialog" aria-label="设置">
+    <div class="set-nav">
+      <div class="h">插件</div>
+      <button data-plugin="timeline">时间线 Timeline</button>
+      <button class="active" data-plugin="taskline">dsh-taskline</button>
+      <button data-plugin="hashline">dsh-hashline-edittool</button>
+    </div>
+    <div class="set-main">
+      <div class="set-head">
+        <b>插件 · dsh-taskline</b>
+        <span class="slot-badge">plugins.bundle.config</span>
+        <button class="x" id="closeSettings">×</button>
+      </div>
+      <div class="set-body">
+        <div class="group">
+          <h4>任务</h4>
+          <div class="field">
+            <div class="lab">
+              <b>嵌套层数</b>
+              <p>0 表示不嵌套；允许 1–5。子任务只能从显式 task_start 创建。</p>
+            </div>
+            <div class="ctl"><input type="number" min="0" max="5" step="1" value="2" id="maxDepth" /></div>
+          </div>
+          <div class="field">
+            <div class="lab"><b>自动创建任务</b><p>无 open 任务且工具调用达到阈值时自动兜底创建。</p></div>
+            <div class="ctl"><label class="switch"><input type="checkbox" checked /><span></span></label></div>
+          </div>
+        </div>
+
+        <div class="group">
+          <h4>压缩</h4>
+          <div class="field">
+            <div class="lab"><b>启用按任务压缩</b><p>关闭后只保留 native 行为，不再按任务边界选段。</p></div>
+            <div class="ctl"><label class="switch"><input type="checkbox" checked id="compressOn" /><span></span></label></div>
+          </div>
+          <div class="field">
+            <div class="lab"><b>压缩后端</b><p>native = DSH 会话日志压缩；bili = wire 级折叠（需随包安装的 bili 子包）。</p></div>
+            <div class="ctl">
+              <select id="backend">
+                <option value="native">native</option>
+                <option value="bili" selected>bili（0.1.216）</option>
+              </select>
+            </div>
+          </div>
+          <div class="note" id="biliNote">
+            bili 后端：需已安装 `dsh-taskline-bili` 且版本在 SUPPORTED 矩阵内。
+            当前检测：0.1.216 · protocolVersion 1 · 可用。
+          </div>
+          <div class="field">
+            <div class="lab"><b>压力线</b><p>占用率越过它开始折叠；原生阈值 = min(W×0.8, W−O−64K)。</p></div>
+            <div class="ctl"><input type="number" min="1" max="100" value="80" /> %</div>
+          </div>
+          <div class="field">
+            <div class="lab"><b>保留尾部</b><p>按 token 比例保留最近原文，避免来回折。</p></div>
+            <div class="ctl"><input type="number" min="0" max="100" value="16" /> %</div>
+          </div>
+          <div class="field">
+            <div class="lab"><b>完成后延迟压缩</b><p>任务关闭后，间隔几个新任务再折叠。</p></div>
+            <div class="ctl"><input type="number" min="1" max="10" value="2" /> 个</div>
+          </div>
+        </div>
+
+        <div class="group">
+          <h4>提示与门禁</h4>
+          <div class="field">
+            <div class="lab"><b>裁边提示</b><p>压缩请求跨 open 任务时，只压已关闭段并报告跳过范围。</p></div>
+            <div class="ctl"><label class="switch"><input type="checkbox" checked /><span></span></label></div>
+          </div>
+          <div class="field">
+            <div class="lab"><b>提醒阈值</b><p>open 任务覆盖的 token 超过该值时提醒收口。</p></div>
+            <div class="ctl"><input type="number" min="1000" step="1000" value="50000" /> tok</div>
+          </div>
+        </div>
+      </div>
+      <div class="set-foot">
+        <button class="primary">保存</button>
+        <button class="secondary">恢复默认</button>
+        <span class="src">写入 profile 补丁 · HMR 生效</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => [...document.querySelectorAll(s)];
+
+  // slot 标注
+  $('#toggleAnno').addEventListener('click', () => {
+    document.body.classList.toggle('annotate');
+    $('#toggleAnno').textContent = document.body.classList.contains('annotate') ? '隐藏 slot 标注' : '显示 slot 标注';
+  });
+
+  // 右栏 tab
+  $$('.rb-tab').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      $$('.rb-tab').forEach((b) => b.classList.toggle('active', b === btn));
+      const isTasks = btn.dataset.rbtab === 'tasks';
+      $('#rbTasks').hidden = !isTasks;
+      $('#rbEvents').hidden = isTasks;
+    });
+  });
+
+  // 任务树折叠
+  $$('.caret[data-toggle]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.toggle;
+      const box = document.querySelector(`[data-children="${key}"]`);
+      if (!box) return;
+      box.classList.toggle('hidden');
+      btn.textContent = box.classList.contains('hidden') ? '>' : 'v';
+    });
+  });
+
+  // 设置页
+  const overlay = $('#settingsOverlay');
+  $('#openSettings').addEventListener('click', () => { overlay.hidden = false; });
+  $('#closeSettings').addEventListener('click', () => { overlay.hidden = true; });
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.hidden = true; });
+  $$('.set-nav button').forEach((b) => b.addEventListener('click', () => {
+    $$('.set-nav button').forEach((x) => x.classList.toggle('active', x === b));
+  }));
+
+  // 后端切换演示
+  $('#backend').addEventListener('change', (e) => {
+    const note = $('#biliNote');
+    if (e.target.value === 'bili') {
+      note.hidden = false;
+      note.textContent = 'bili 后端：需已安装 `dsh-taskline-bili` 且版本在 SUPPORTED 矩阵内。当前检测：0.1.216 · protocolVersion 1 · 可用。';
+      note.style.display = '';
+    } else {
+      note.hidden = false;
+      note.textContent = 'native 后端：使用 preset 内的 compaction-basic；taskline 只按任务区间驱动 compactRegion。';
+    }
+  });
+
+  // dock 折叠
+  const dockEl = document.querySelector('.dock');
+  document.getElementById('dockToggle').addEventListener('click', (e) => {
+    const collapsed = dockEl.classList.toggle('collapsed');
+    e.currentTarget.textContent = collapsed ? '>' : 'v';
+    e.currentTarget.title = collapsed ? '展开' : '折叠';
+  });
+
+  // 打开任务树
+  $('#openTree').addEventListener('click', () => {
+    $$('.rb-tab').find((b) => b.dataset.rbtab === 'tasks').click();
+  });
+</script>
+</body>
+</html>
