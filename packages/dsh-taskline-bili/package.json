@@ -1,0 +1,23 @@
+{
+  "name": "dsh-taskline-bili",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./src/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "billion-context": "0.1.216"
+  },
+  "engines": {
+    "node": ">=24.9.0",
+    "dsh": ">=0.2.2-0 <0.3.0"
+  },
+  "description": "billion-context runtime facade for dsh-taskline"
+}

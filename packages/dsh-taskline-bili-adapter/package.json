@@ -1,0 +1,20 @@
+{
+  "name": "dsh-taskline-bili-adapter",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./map": "./src/map.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=24.9.0",
+    "dsh": ">=0.2.2-0 <0.3.0"
+  },
+  "description": "bili ref mapping and surface write-back for dsh-taskline"
+}
