@@ -1,0 +1,20 @@
+{
+  "name": "dsh-taskline-compactor",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./plan": "./src/plan.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=24.9.0",
+    "dsh": ">=0.2.2-0 <0.3.0"
+  },
+  "description": "Task-aware compaction driver for dsh-taskline"
+}

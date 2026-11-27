@@ -1,0 +1,36 @@
+name: verify
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Unit tests
+        run: node --test packages/dsh-taskline-core/test/*.test.js packages/dsh-taskline-compactor/test/*.test.js packages/dsh-taskline-bili/test/*.test.js packages/dsh-taskline-bili-adapter/test/*.test.js
+  packages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package constraints
+        run: |
+          node -e '
+          const fs = require("fs");
+          const pkgs = ["dsh-taskline","dsh-taskline-core","dsh-taskline-ui","dsh-taskline-compactor","dsh-taskline-bili","dsh-taskline-bili-adapter"];
+          const errors = [];
+          for (const name of pkgs) {
+            const dir = `packages/${name}/package.json`;
+            const p = JSON.parse(fs.readFileSync(dir, "utf8"));
+            if (!p.engines || !p.engines.dsh) errors.push(`${name}: engines.dsh must be top-level`);
+            if (name === "dsh-taskline" && !p.dsh?.bundle) errors.push("dsh-taskline must declare dsh.bundle");
+            if (name !== "dsh-taskline" && p.dsh?.bundle) errors.push(`${name} must not declare dsh.bundle`);
+          }
+          if (errors.length) { console.error(errors.join("\n")); process.exit(1); }
+          console.log("package constraints ok");
+          '

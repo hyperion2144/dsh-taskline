@@ -1,0 +1,23 @@
+- insert:
+    - id: taskline-bundle
+      name: dsh-taskline/bundle
+      group: true
+      config:
+        - id: taskline
+          name: dsh-taskline-core
+          config: { nesting: { maxDepth: 0 }, autoCreate: { enabled: true, thresholdCalls: 3 }, compaction: { enabled: true, backend: auto, compressor: bili, thresholdRatio: 0.8, contextLimit: 0, tasksLater: 2, notifyOnClamp: true }, reminder: { enabled: true, thresholdTokens: 50000, cooldownMinutes: 10 } }
+        - id: taskline-ui
+          name: dsh-taskline-ui
+        - id: taskline-compactor
+          name: dsh-taskline-compactor
+        - id: taskline-bili
+          name: dsh-taskline-bili
+        - id: taskline-bili-adapter
+          name: dsh-taskline-bili-adapter
+        - id: bili-native
+          name: billion-context
+        - id: bili-compaction-gate
+          name: billion-context/dsh-compaction-gate
+- id: compaction-basic
+  config:
+    auto: false
